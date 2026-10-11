@@ -16,7 +16,7 @@ cp .env.example .env
 docker compose up -d db
 ```
 
-MySQL is available on `localhost:3306` by default. Set `MYSQL_PORT` in the root `.env` if that port is occupied. The database, application user, and tables in `db/init.sql` are created when Docker initializes a fresh data volume. The named volume preserves data across restarts; changing `init.sql` later does not rerun it on an existing volume.
+MySQL is available on `localhost:3307` by default. Set `MYSQL_PORT` in the root `.env` if that port is occupied. The container still uses MySQL's internal port `3306`; Docker maps host port `3307` to it. The database, application user, and tables in `db/init.sql` are created when Docker initializes a fresh data volume. The named volume preserves data across restarts; changing `init.sql` later does not rerun it on an existing volume.
 
 ## Start the backend
 
@@ -31,7 +31,17 @@ npm run dev
 
 The API listens on `http://localhost:3001` by default. Check it at `http://localhost:3001/api/health`. Set `PORT` in `server/.env` to use another port. The server reads database credentials from the root `.env` file created for Docker Compose, and connects to MySQL on `127.0.0.1` by default.
 
-Set `JWT_SECRET` in `server/.env` to a long random value. Set the `SMTP_*` values and `ADMIN_EMAIL` to credentials and addresses from your SMTP provider; the values in `server/.env.example` are placeholders. The API includes `POST /api/auth/login` (JSON body with `email` and `password`), `GET /api/projects`, and `POST /api/leads`. The lead request body requires `client_name`, `client_email`, `phone`, and `service_type`; submissions are stored in MySQL and an admin notification is sent asynchronously.
+Set `JWT_SECRET` in `server/.env` to a long random value. The SMTP example sends through `yqwm678@gmail.com` and delivers new lead notifications to `amitaygabay2@gmail.com`. For Nodemailer's SMTP login, set `SMTP_PASSWORD` to a Google App Password created for `yqwm678@gmail.com`; Google requires 2-Step Verification for app passwords, and availability depends on the account. Keep that password only in `server/.env`. Lead submissions are stored in MySQL, then the admin receives a formatted notification containing the submitted client name, email, phone, service, and submission time. The API includes `POST /api/auth/login`, `GET /api/projects`, and `POST /api/leads`.
+
+The lead API waits for Gmail to accept the notification and responds with `email_sent: true` or `false`. A saved lead can therefore be reported separately from an email failure. If Gmail accepts the message but it is not in Inbox, check Spam and mark the message as not spam; Gmail controls final delivery and classification.
+
+Set `CLIENT_BASE_URL` in `server/.env` to the URL where you open the local React app, normally `http://localhost:5173`. New lead submissions still email the admin. When the admin opens the first project for a lead, the server creates a client account and emails the client its login address and randomly generated password. Additional leads or projects using the same email reuse that account; login details are not sent again. If the first email fails, the admin dashboard can generate and email new credentials. Client passwords are hashed in MySQL; the generated password itself is shown only in the welcome email. Because email carries a password, protect access to that mailbox and use HTTPS before hosting the app publicly.
+
+When a client project changes to `Completed`, the client receives a styled review request linking to `/client`. The client signs in to view all projects linked to their account and can review completed projects. Admins can delete public reviews. The former lead-handled and temporary review-link flow is retired. If a completion email fails, the dashboard offers a resend action.
+
+For an existing MySQL volume, run `npm run migrate-reviews` and then `npm run migrate-workspace` from `server`. These scripts add the review and client workspace tables without deleting existing leads or projects. The workspace migration publishes legacy standalone projects so they remain visible on Home. Fresh volumes get the complete schema from `db/init.sql`.
+
+To create the first admin account, set a temporary `ADMIN_PASSWORD` (at least 8 characters) in the shell environment, then run `npm run create-admin` from `server`. The script uses `ADMIN_EMAIL` as the login address and hashes the password in MySQL. Remove `ADMIN_PASSWORD` from the shell environment after the account is created. The command refuses to overwrite an existing account.
 
 ## Start the frontend
 
@@ -43,6 +53,8 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by Vite (usually `http://localhost:5173`). The client currently renders an empty page; routing, state management, and UI are ready to be implemented later.
+Open the local URL printed by Vite (usually `http://localhost:5173`). The frontend has Home, About, Contact, Client area, and Admin pages. The Home gallery displays only projects explicitly marked for publication; an empty gallery means nothing has been published yet.
+
+The admin dashboard can delete leads, open multiple projects for one client, edit project descriptions, add text updates, upload multiple images, publish selected projects, change statuses, and delete reviews. A separate portfolio form creates a public project with an image, marks it Completed automatically, and sends no client email. Completed projects are styled differently in both dashboards and the public gallery. Private client images require the admin or linked client's JWT even when their image URL is known. Uploaded files are stored in `server/uploads`; back up this folder along with the database.
 
 To stop MySQL, run `docker compose down` from the repository root.

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import './config/env.js';
+import '../config/env.js';
 
 export function authMiddleware(req, res, next) {
   if (!process.env.JWT_SECRET) {

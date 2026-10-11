@@ -1,13 +1,48 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { pool } from './db.js';
 import { sendLeadNotification } from './email.js';
+import { authMiddleware } from './middleware/authMiddleware.js';
+import { registerWorkspaceRoutes } from './workspaceRoutes.js';
 import './config/env.js';
 
 const app = express();
 const port = Number(process.env.PORT) || 3001;
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.resolve(currentDir, '../uploads');
+mkdirSync(uploadsDir, { recursive: true });
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => callback(null, uploadsDir),
+    filename: (_req, file, callback) => {
+      const extension = path.extname(file.originalname);
+      callback(null, `${randomUUID()}${extension}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
+    if (allowed[path.extname(file.originalname).toLowerCase()] !== file.mimetype) {
+      return callback(new Error('Only JPG, PNG, WebP, or GIF images are allowed.'));
+    }
+    return callback(null, true);
+  },
+});
+
+function requireAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Administrator access is required.' });
+  }
+  return next();
+}
 
 app.use(cors());
 app.use(express.json());
@@ -50,16 +85,7 @@ app.post('/api/auth/login', async (req, res, next) => {
   }
 });
 
-app.get('/api/projects', async (_req, res, next) => {
-  try {
-    const [projects] = await pool.query(
-      'SELECT id, title, description, image_url, status FROM Projects ORDER BY id',
-    );
-    res.json(projects);
-  } catch (error) {
-    next(error);
-  }
-});
+registerWorkspaceRoutes(app, { upload, uploadsDir, authMiddleware, requireAdmin });
 
 app.post('/api/leads', async (req, res, next) => {
   const { client_name, client_email, phone, service_type } = req.body ?? {};
@@ -82,16 +108,26 @@ app.post('/api/leads', async (req, res, next) => {
       [client_name.trim(), client_email.trim(), phone?.trim() || null, service_type.trim()],
     );
 
-    void sendLeadNotification({
-      client_name: client_name.trim(),
-      client_email: client_email.trim(),
-      phone: phone?.trim() || null,
-      service_type: service_type.trim(),
-    }).catch((error) => {
-      console.error('Failed to send lead notification email:', error);
-    });
+    let emailSent = false;
+    try {
+      const delivery = await sendLeadNotification({
+        client_name: client_name.trim(),
+        client_email: client_email.trim(),
+        phone: phone?.trim() || null,
+        service_type: service_type.trim(),
+      });
+      emailSent = delivery.accepted?.includes(process.env.ADMIN_EMAIL) ?? false;
+      console.info('Lead notification SMTP result:', {
+        leadId: result.insertId,
+        messageId: delivery.messageId,
+        accepted: delivery.accepted,
+        rejected: delivery.rejected,
+      });
+    } catch (error) {
+      console.error(`Failed to send lead notification email for lead ${result.insertId}:`, error);
+    }
 
-    return res.status(201).json({ id: result.insertId });
+    return res.status(201).json({ id: result.insertId, email_sent: emailSent });
   } catch (error) {
     return next(error);
   }
@@ -100,6 +136,10 @@ app.post('/api/leads', async (req, res, next) => {
 app.use((error, _req, res, next) => {
   if (res.headersSent) {
     return next(error);
+  }
+
+  if (error instanceof multer.MulterError || error.message === 'Only JPG, PNG, WebP, or GIF images are allowed.') {
+    return res.status(400).json({ error: error.message });
   }
 
   console.error('API request failed:', error);
