@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS Projects (
   is_public BOOLEAN NOT NULL DEFAULT FALSE,
   completed_at DATETIME NULL,
   review_requested_at DATETIME NULL,
+  reviewed_at DATETIME NULL,
   status VARCHAR(50) NOT NULL,
   PRIMARY KEY (id)
 );
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS Reviews (
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_reviews_lead (lead_id),
+  UNIQUE KEY uq_reviews_project (project_id),
   CONSTRAINT fk_reviews_lead FOREIGN KEY (lead_id) REFERENCES Leads(id) ON DELETE SET NULL,
   CONSTRAINT fk_reviews_client FOREIGN KEY (client_id) REFERENCES Users(id) ON DELETE SET NULL,
   CONSTRAINT fk_reviews_project FOREIGN KEY (project_id) REFERENCES Projects(id) ON DELETE SET NULL,

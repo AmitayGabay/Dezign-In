@@ -1,0 +1,1060 @@
+{
+  "info": {
+    "_postman_id": "b8d422d2-1093-4ea4-89e7-a626152ef935",
+    "name": "Dezign'In API",
+    "description": "כל נתיבי ה-API בשרת Express, כולל קבצים ונתיבים שיצאו משימוש. סדר עבודה מומלץ: Health → Login as admin → Create lead → Open client project from lead → Login as client (עם הסיסמה שנשלחה במייל) → Add images/updates → Change status to Completed → Submit review. משתני מזהים וטוקנים נשמרים אוטומטית מתשובות מוצלחות. בחרו קובצי תמונה בבקשות multipart אחרי הייבוא. בקשות POST/PATCH/DELETE משנות את מסד הנתונים וחלקן שולחות מיילים; הריצו אותן בנפרד ובסדר המתאים.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "item": [
+    {
+      "name": "01 · Public",
+      "description": "פעולות ללא התחברות. יצירת פנייה שולחת התראה למנהל אם SMTP מוגדר.",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "בדיקת זמינות השרת. תשובה לדוגמה: {\"status\":\"ok\"}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List public projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects",
+            "description": "רק פרויקטים שפורסמו באתר."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "List public reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/reviews",
+            "description": "ביקורות ציבוריות; שם פרויקט פרטי לא נחשף."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/leads",
+            "description": "יוצר פנייה ושומר את leadId. הגדירו clientEmail ככתובת שתוכלו לקבל אליה מייל; phone חייב להופיע ויכול להיות null.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_name\": \"Postman Test Client\",\n  \"client_email\": \"{{clientEmail}}\",\n  \"phone\": \"0501234567\",\n  \"service_type\": \"Renovation\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const value = data.id;",
+                  "  if (value !== undefined && value !== null) pm.collectionVariables.set('leadId', String(value));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 · Authentication",
+      "description": "הגדירו adminEmail/adminPassword; סיסמת הלקוח מגיעה במייל אחרי פתיחת הפרויקט הראשון. הטוקנים נשמרים במשתני האוסף לשימוש אוטומטי.",
+      "item": [
+        {
+          "name": "Login as admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "שומר adminToken מתשובה תקינה. הטוקן תקף ליום אחד.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const value = data.token;",
+                  "  if (value !== undefined && value !== null) pm.collectionVariables.set('adminToken', String(value));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Login as client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "שומר clientToken מתשובה תקינה. צרו תחילה פרויקט ללקוח וקבלו את הסיסמה במייל.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{clientEmail}}\",\n  \"password\": \"{{clientPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const value = data.token;",
+                  "  if (value !== undefined && value !== null) pm.collectionVariables.set('clientToken', String(value));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 · Admin · Leads and clients",
+      "description": "דורש adminToken. הפעולות כאן משתמשות ב-leadId שנשמר בעת יצירת הפנייה.",
+      "item": [
+        {
+          "name": "List leads",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/leads",
+            "description": "מציג את כל הפניות ואת מספר הפרויקטים הקשורים."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Open client project from lead",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/leads/{{leadId}}/projects",
+            "description": "יוצר פרויקט פרטי בסטטוס Planning. יוצר חשבון לקוח בפעם הראשונה ושולח סיסמה במייל. שומר clientId, clientProjectId וגם projectId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sample apartment renovation\",\n  \"description\": \"Bathroom and kitchen renovation with a warm, minimal finish.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const project = pm.response.json().project;",
+                  "  pm.collectionVariables.set('clientId', String(project.client_id));",
+                  "  pm.collectionVariables.set('clientProjectId', String(project.id));",
+                  "  pm.collectionVariables.set('projectId', String(project.id));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Retry client welcome email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/clients/{{clientId}}/welcome-retry",
+            "description": "מיועד רק למקרה שבו מייל הסיסמה הראשון נכשל. מאפס את סיסמת הלקוח ושולח חדשה; אם נשלחה כבר ברכה, השרת מחזיר 409."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete lead",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/leads/{{leadId}}",
+            "description": "מוחק פנייה קיימת. השתמשו בזה אחרי סיום הבדיקות, אם ברצונכם להסיר את הפנייה לדוגמה."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "04 · Admin · Projects",
+      "description": "דורש adminToken. projectId מתעדכן בעת פתיחת פרויקט לקוח; אפשר גם להזין ידנית מזהה קיים.",
+      "item": [
+        {
+          "name": "List all projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/projects",
+            "description": "כולל פרויקטים פרטיים, פרטי לקוח, תמונות ועדכונים."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create public portfolio project",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects",
+            "description": "בחרו image אחרי הייבוא. יוצר פרויקט ציבורי שהסטטוס שלו Completed; שומר portfolioProjectId ו-publicImagePath.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Modern living room",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "A bright living room with natural materials and custom joinery.",
+                  "type": "text"
+                },
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "בחרו קובץ JPG, PNG, WebP או GIF עד 10MB אחרי הייבוא."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const project = pm.response.json();",
+                  "  pm.collectionVariables.set('portfolioProjectId', String(project.id));",
+                  "  if (project.image_url) pm.collectionVariables.set('publicImagePath', project.image_url);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Update project details and visibility",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}",
+            "description": "כל שלושת השדות נדרשים. דוגמה על פרויקט הלקוח; is_public נשאר false.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sample apartment renovation\",\n  \"description\": \"Updated scope: bathroom, kitchen and lighting design.\",\n  \"is_public\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Add project text update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/updates",
+            "description": "body הוא טקסט שאינו ריק, עד 10,000 תווים.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Demolition is complete and material samples are ready for review.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Add project images",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/images",
+            "description": "בחרו לפחות קובץ אחד; עד 20 תמונות בבקשה ועד 10MB לתמונה. שומר imageId ואת privateImagePath מהתמונה האחרונה.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": "",
+                  "description": "בחרו קובץ JPG, PNG, WebP או GIF עד 10MB אחרי הייבוא."
+                },
+                {
+                  "key": "images",
+                  "type": "file",
+                  "src": "",
+                  "description": "בחרו קובץ JPG, PNG, WebP או GIF עד 10MB אחרי הייבוא."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  "  const project = pm.response.json();",
+                  "  const image = project.images?.[project.images.length - 1];",
+                  "  if (image) {",
+                  "    pm.collectionVariables.set('imageId', String(image.id));",
+                  "    pm.collectionVariables.set('privateImagePath', image.url);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Upload one project image (legacy route)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/upload",
+            "description": "מוסיף תמונה אחת ומגדיר אותה כתמונה ראשית. בחרו image אחרי הייבוא.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": "",
+                  "description": "בחרו קובץ JPG, PNG, WebP או GIF עד 10MB אחרי הייבוא."
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  "  const project = pm.response.json();",
+                  "  const image = project.images?.[project.images.length - 1];",
+                  "  if (image) {",
+                  "    pm.collectionVariables.set('imageId', String(image.id));",
+                  "    pm.collectionVariables.set('privateImagePath', image.url);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Change project status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/status",
+            "description": "ערכים מותרים: Planning, In Progress, Completed. מעבר ל-Completed בפרויקט לקוח שולח בקשת ביקורת במייל.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Resend review request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects/{{clientProjectId}}/review-request",
+            "description": "רק פרויקט לקוח בסטטוס Completed. שולח מייל נוסף לבקשת ביקורת."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete project image",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/projects/{{projectId}}/images/{{imageId}}",
+            "description": "מוחק גם את קובץ התמונה. imageId נשמר אוטומטית אחרי העלאת תמונות."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "05 · Client",
+      "description": "דורש clientToken של הלקוח המקושר לפרויקט.",
+      "item": [
+        {
+          "name": "List my projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/client/projects",
+            "description": "כולל status, images, updates ו-has_review לכל פרויקט של הלקוח."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Submit review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/reviews",
+            "description": "מותרת ביקורת אחת בלבד לכל פרויקט לקוח שהושלם. rating חייב להיות מספר שלם 1–5; comment עד 2,000 תווים. שומר reviewId.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": {{clientProjectId}},\n  \"rating\": 5,\n  \"comment\": \"Excellent communication and a beautiful result throughout the project.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                  "  const data = pm.response.json();",
+                  "  const value = data.id;",
+                  "  if (value !== undefined && value !== null) pm.collectionVariables.set('reviewId', String(value));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{clientToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "06 · Admin · Reviews",
+      "description": "דורש adminToken. מחיקת ביקורת לא מאפשרת ללקוח להגיש מחדש לאותו פרויקט.",
+      "item": [
+        {
+          "name": "List all reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/reviews",
+            "description": "כולל כותרות פרויקטים גם כשאינם ציבוריים."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete review",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/reviews/{{reviewId}}",
+            "description": "מוחק את הביקורת הציבורית; סימון הפרויקט ככזה שכבר קיבל ביקורת נשמר."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{adminToken}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "07 · Uploaded files",
+      "description": "כתובת התמונה מתקבלת בשדה image_url או images[].url של הפרויקט. תמונה פרטית דורשת JWT.",
+      "item": [
+        {
+          "name": "Get public portfolio image",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{publicImagePath}}",
+            "description": "יוצר תחילה פרויקט portfolio כדי למלא publicImagePath. התשובה היא קובץ בינארי."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get private project image as admin",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{privateImagePath}}",
+            "description": "מעלים תחילה תמונה לפרויקט לקוח כדי למלא privateImagePath. ללא טוקן מתאים מתקבל 401/403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get private project image as client",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}{{privateImagePath}}",
+            "description": "אותה תמונה עם clientToken של הלקוח המקושר.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "08 · Retired endpoints (HTTP 410)",
+      "description": "נתיבים קיימים בשרת לצורכי תאימות; כולם מחזירים 410 ואינם מבצעים את התהליך הישן.",
+      "item": [
+        {
+          "name": "Old review invitation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/review-invitations/{{deprecatedToken}}",
+            "description": "הקישור הישן הוחלף בהתחברות לאזור הלקוח."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 410', () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Old lead status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/leads/{{leadId}}/status",
+            "description": "תהליך הטיפול בפנייה הוחלף בפתיחת פרויקט. נדרשת הרשאת admin גם לקבלת 410.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Handled\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 410', () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Old lead review invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/leads/{{leadId}}/review-invite",
+            "description": "בקשת ביקורת נשלחת כיום לאחר השלמת פרויקט. נדרשת הרשאת admin גם לקבלת 410.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 410', () => pm.response.to.have.status(410));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@example.com",
+      "type": "string"
+    },
+    {
+      "key": "adminPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientEmail",
+      "value": "client@example.com",
+      "type": "string"
+    },
+    {
+      "key": "clientPassword",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "leadId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientProjectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "portfolioProjectId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "imageId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "reviewId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "publicImagePath",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "privateImagePath",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deprecatedToken",
+      "value": "retired",
+      "type": "string"
+    }
+  ]
+}

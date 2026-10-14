@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useI18n } from '../i18n.jsx';
 
 const renovationTypes = {
   flooring: { label: 'Flooring', rate: 200 },
@@ -13,6 +14,7 @@ const qualityMultipliers = {
 };
 
 export default function CostCalculator() {
+  const { t, locale } = useI18n();
   const [renovationType, setRenovationType] = useState('flooring');
   const [area, setArea] = useState('');
   const [quality, setQuality] = useState('standard');
@@ -30,52 +32,52 @@ export default function CostCalculator() {
       <div className="calculator-card container">
         <div className="calculator-card__heading">
           <div>
-            <p className="eyebrow"><span className="eyebrow__line" /> A helpful first estimate</p>
-            <h2 id="cost-calculator-title">Plan with a little more clarity.</h2>
+            <p className="eyebrow"><span className="eyebrow__line" /> {t('A helpful first estimate')}</p>
+            <h2 id="cost-calculator-title">{t('Plan with a little more clarity.')}</h2>
           </div>
           <span className="calculator-card__icon" aria-hidden="true">＋</span>
         </div>
         <div className="calculator-card__content">
           <form className="calculator-form" onSubmit={(event) => event.preventDefault()}>
             <label className="form-field">
-              <span>Renovation type</span>
+              <span>{t('Renovation type')}</span>
               <select value={renovationType} onChange={(event) => setRenovationType(event.target.value)}>
                 {Object.entries(renovationTypes).map(([value, { label }]) => (
-                  <option key={value} value={value}>{label}</option>
+                  <option key={value} value={value}>{t(label)}</option>
                 ))}
               </select>
             </label>
 
             <label className="form-field">
-              <span>Area <small>(square meters)</small></span>
+              <span>{t('Area')} <small>{t('(square meters)')}</small></span>
               <input
                 type="number"
                 min="0"
                 step="any"
                 value={area}
                 onChange={(event) => setArea(event.target.value)}
-                placeholder="Enter area"
+                placeholder={t('Enter area')}
               />
             </label>
 
             <label className="form-field">
-              <span>Material quality</span>
+              <span>{t('Material quality')}</span>
               <select value={quality} onChange={(event) => setQuality(event.target.value)}>
-                <option value="standard">Standard (×1)</option>
-                <option value="premium">Premium (×1.5)</option>
-                <option value="luxury">Luxury (×2)</option>
+                <option value="standard">{t('Standard (×1)')}</option>
+                <option value="premium">{t('Premium (×1.5)')}</option>
+                <option value="luxury">{t('Luxury (×2)')}</option>
               </select>
             </label>
           </form>
 
           <div className="calculator-total" aria-live="polite">
-            <span className="calculator-total__label">Estimated total</span>
-            <strong>{estimatedCost.toLocaleString(undefined, {
+            <span className="calculator-total__label">{t('Estimated total')}</span>
+            <strong dir="ltr">{estimatedCost.toLocaleString(locale, {
               style: 'currency',
               currency: 'ILS',
               maximumFractionDigits: 2,
             })}</strong>
-            <small>ILS · Estimate only, final costs may vary</small>
+            <small>{t('ILS · Estimate only, final costs may vary')}</small>
           </div>
         </div>
       </div>

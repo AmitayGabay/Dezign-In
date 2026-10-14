@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loginAdmin, logout } from '../features/auth/authSlice.js';
 import { fetchProjects } from '../features/projects/projectsSlice.js';
 import ProjectImage from '../components/ProjectImage.jsx';
+import { useI18n } from '../i18n.jsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001';
 const PROJECT_STATUSES = ['Planning', 'In Progress', 'Completed'];
@@ -22,6 +23,9 @@ async function apiRequest(path, token, options = {}) {
 }
 
 export default function Admin() {
+  const { t, locale } = useI18n();
+  const messageText = (message) => message?.startsWith('Error: ')
+    ? t('Error: {message}', { message: t(message.slice(7)) }) : t(message || '');
   const dispatch = useDispatch();
   const { token, status: loginStatus, error: loginError } = useSelector((state) => state.auth);
   const [email, setEmail] = useState('');
@@ -113,7 +117,7 @@ export default function Admin() {
   }
 
   function deleteLead(lead) {
-    if (!window.confirm(`Delete the inquiry from ${lead.client_name}? Linked projects will stay with the client.`)) return;
+    if (!window.confirm(t('Delete the inquiry from {name}? Linked projects will stay with the client.', { name: lead.client_name }))) return;
     act(`lead-${lead.id}`, () => apiRequest(`/api/leads/${lead.id}`, token, { method: 'DELETE' }), 'Inquiry deleted.');
   }
 
@@ -157,67 +161,72 @@ export default function Admin() {
   }
 
   if (!token) return <div className="admin-page container"><section className="admin-login">
-    <p className="eyebrow"><span className="eyebrow__line" /> Studio workspace</p><h1>Welcome back.</h1>
-    <p className="admin-login__intro">Sign in to manage inquiries, client projects, and your public portfolio.</p>
+    <p className="eyebrow"><span className="eyebrow__line" /> {t('Studio workspace')}</p><h1>{t('Welcome back.')}</h1>
+    <p className="admin-login__intro">{t('Sign in to manage inquiries, client projects, and your public portfolio.')}</p>
     <form className="admin-login__form" onSubmit={handleLogin}>
-      <label className="form-field"><span>Email</span><input className="form-control" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-      <label className="form-field"><span>Password</span><input className="form-control" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
-      <button className="button button--dark" disabled={loginStatus === 'loading'}>Sign in <span aria-hidden="true">↗</span></button>
-    </form>{loginError && <p className="form-feedback form-feedback--error" role="alert">{loginError}</p>}
+      <label className="form-field"><span>{t('Email')}</span><input className="form-control" type="email" autoComplete="username" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+      <label className="form-field"><span>{t('Password')}</span><input className="form-control" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+      <button className="button button--dark" disabled={loginStatus === 'loading'}>{t('Sign in')} <span aria-hidden="true">↗</span></button>
+    </form>{loginError && <p className="form-feedback form-feedback--error" role="alert">{t(loginError)}</p>}
   </section></div>;
 
   return <div className="admin-page container">
-    <header className="admin-header"><div><p className="eyebrow"><span className="eyebrow__line" /> Studio workspace</p><h1>Dashboard</h1></div><button className="button button--outline" onClick={() => dispatch(logout())}>Sign out</button></header>
-    {dashboardStatus === 'loading' && <p className="notice-card">Loading your studio dashboard…</p>}
-    {dashboardStatus === 'error' && <p className="form-feedback form-feedback--error" role="alert">{dashboardError}</p>}
+    <header className="admin-header"><div><p className="eyebrow"><span className="eyebrow__line" /> {t('Studio workspace')}</p><h1>{t('Dashboard')}</h1></div><button className="button button--outline" onClick={() => dispatch(logout())}>{t('Sign out')}</button></header>
+    {dashboardStatus === 'loading' && <p className="notice-card">{t('Loading your studio dashboard…')}</p>}
+    {dashboardStatus === 'error' && <p className="form-feedback form-feedback--error" role="alert">{t(dashboardError)}</p>}
     {dashboardStatus === 'ready' && <div className="admin-content">
-      <section className="admin-panel" aria-labelledby="leads-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> Inbox</p><h2 id="leads-title">Inquiries</h2></div><span className="admin-count">{leads.length} leads</span></div>
-        {leads.length === 0 && <p>No inquiries yet.</p>}
+      <section className="admin-panel" aria-labelledby="leads-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> {t('Inbox')}</p><h2 id="leads-title">{t('Inquiries')}</h2></div><span className="admin-count">{t('{count} leads', { count: leads.length })}</span></div>
+        {leads.length === 0 && <p>{t('No inquiries yet.')}</p>}
         <div className="admin-lead-list">{leads.map((lead) => <article className="admin-lead" key={lead.id}>
-          <div className="admin-lead__heading"><div><h3>{lead.client_name}</h3><p><a href={`mailto:${lead.client_email}`}>{lead.client_email}</a> · {lead.phone || 'No phone'} · {lead.service_type}</p><small>Received {new Date(lead.created_at).toLocaleString()} · {lead.project_count} linked projects</small></div><button className="button button--outline button--small" onClick={() => deleteLead(lead)} disabled={pending[`lead-${lead.id}`]}>Delete lead</button></div>
+          <div className="admin-lead__heading"><div><h3 dir="auto">{lead.client_name}</h3><p><a href={`mailto:${lead.client_email}`} dir="ltr">{lead.client_email}</a> · {lead.phone || t('No phone')} · {t(lead.service_type)}</p><small>{t('Received {date} · Linked projects: {count}', { date: new Date(lead.created_at).toLocaleString(locale), count: lead.project_count })}</small></div><button className="button button--outline button--small" onClick={() => deleteLead(lead)} disabled={pending[`lead-${lead.id}`]}>{t('Delete lead')}</button></div>
           <form className="admin-lead__form" onSubmit={(event) => openClientProject(event, lead)}>
-            <label className="form-field"><span>New project title</span><input className="form-control" value={leadProjects[lead.id]?.title || ''} onChange={(event) => setLeadProjects((current) => ({ ...current, [lead.id]: { ...current[lead.id], title: event.target.value } }))} required /></label>
-            <label className="form-field"><span>Project description</span><textarea className="form-control" value={leadProjects[lead.id]?.description || ''} onChange={(event) => setLeadProjects((current) => ({ ...current, [lead.id]: { ...current[lead.id], description: event.target.value } }))} rows={2} /></label>
-            <button className="button button--dark" disabled={pending[`lead-${lead.id}`]}>Open client project</button>
+            <label className="form-field"><span>{t('New project title')}</span><input className="form-control" value={leadProjects[lead.id]?.title || ''} onChange={(event) => setLeadProjects((current) => ({ ...current, [lead.id]: { ...current[lead.id], title: event.target.value } }))} required /></label>
+            <label className="form-field"><span>{t('Project description')}</span><textarea className="form-control" value={leadProjects[lead.id]?.description || ''} onChange={(event) => setLeadProjects((current) => ({ ...current, [lead.id]: { ...current[lead.id], description: event.target.value } }))} rows={2} /></label>
+            <button className="button button--dark" disabled={pending[`lead-${lead.id}`]}>{t('Open client project')}</button>
           </form>
-          {messages[`lead-${lead.id}`] && <p className={`admin-project__feedback${messages[`lead-${lead.id}`].startsWith('Error:') ? ' is-error' : ''}`} role="status">{messages[`lead-${lead.id}`]}</p>}
+          {messages[`lead-${lead.id}`] && <p className={`admin-project__feedback${messages[`lead-${lead.id}`].startsWith('Error:') ? ' is-error' : ''}`} role="status">{messageText(messages[`lead-${lead.id}`])}</p>}
         </article>)}</div>
       </section>
 
-      <section className="admin-panel" aria-labelledby="projects-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> Workspace</p><h2 id="projects-title">Open &amp; completed projects</h2></div><span className="admin-count">{projects.length} projects</span></div>
-        {projects.length === 0 && <p>No projects yet. Open one from a lead or add portfolio work below.</p>}
-        <div className="admin-project-list">{projects.map((project) => <article className={`admin-project${project.status === 'Completed' ? ' admin-project--completed' : ''}`} key={project.id}>
-          <div className="admin-project__title"><div><h3>{project.title}</h3><p>{project.client_name ? `${project.client_name} · ${project.client_email}` : 'Portfolio project'}</p></div><span className="status-pill">{project.status}</span></div>
-          <div className="admin-project__photos">{project.images.map((image) => <div className="admin-project__photo" key={image.id}><ProjectImage url={image.url} token={token} alt={image.caption || project.title} /><button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/projects/${project.id}/images/${image.id}`, token, { method: 'DELETE' }), 'Image removed.')}>Remove image</button></div>)}</div>
+      <section className="admin-panel" aria-labelledby="projects-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> {t('Workspace')}</p><h2 id="projects-title">{t('Open & completed projects')}</h2></div><span className="admin-count">{t('{count} projects', { count: projects.length })}</span></div>
+        {projects.length === 0 && <p>{t('No projects yet. Open one from a lead or add portfolio work below.')}</p>}
+        <div className="admin-project-list">{projects.map((project) => <details className={`admin-project${project.status === 'Completed' ? ' admin-project--completed' : ''}`} key={project.id}>
+          <summary className="admin-project__summary">
+            <span className="admin-project__summary-main"><span className="admin-project__summary-title" dir="auto">{project.title}</span><span className="admin-project__summary-client" dir="auto">{project.client_name ? `${project.client_name} · ${project.client_email}` : t('Portfolio project')}</span></span>
+            <span className="admin-project__summary-meta"><span className="status-pill">{t(project.status)}</span><span className="admin-project__chevron" aria-hidden="true" /></span>
+          </summary>
+          <div className="admin-project__body">
+          <div className="admin-project__photos">{project.images.map((image) => <div className="admin-project__photo" key={image.id}><ProjectImage url={image.url} token={token} alt={image.caption || project.title} /><button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/projects/${project.id}/images/${image.id}`, token, { method: 'DELETE' }), 'Image removed.')}>{t('Remove image')}</button></div>)}</div>
           <form className="admin-project__edit" onSubmit={(event) => saveProject(event, project.id)}>
-            <label className="form-field"><span>Title</span><input className="form-control" value={editValues[project.id]?.title ?? project.title} onChange={(event) => updateProject(project.id, { title: event.target.value })} required /></label>
-            <label className="form-field"><span>Description</span><textarea className="form-control" value={editValues[project.id]?.description ?? project.description ?? ''} onChange={(event) => updateProject(project.id, { description: event.target.value })} rows={3} /></label>
-            <label className="admin-checkbox"><input type="checkbox" checked={editValues[project.id]?.is_public ?? Boolean(project.is_public)} onChange={(event) => updateProject(project.id, { is_public: event.target.checked })} /> Publish in Home portfolio</label>
-            <button className="button button--outline" disabled={pending[`project-${project.id}`]}>Save details</button>
+            <label className="form-field"><span>{t('Title')}</span><input className="form-control" value={editValues[project.id]?.title ?? project.title} onChange={(event) => updateProject(project.id, { title: event.target.value })} required /></label>
+            <label className="form-field"><span>{t('Description')}</span><textarea className="form-control" value={editValues[project.id]?.description ?? project.description ?? ''} onChange={(event) => updateProject(project.id, { description: event.target.value })} rows={3} /></label>
+            <div className="admin-project__edit-actions"><label className="admin-checkbox"><input type="checkbox" checked={editValues[project.id]?.is_public ?? Boolean(project.is_public)} onChange={(event) => updateProject(project.id, { is_public: event.target.checked })} /> {t('Publish in Home portfolio')}</label>
+            <button className="button button--outline" disabled={pending[`project-${project.id}`]}>{t('Save details')}</button></div>
           </form>
-          <div className="admin-project__tools"><label className="form-field"><span>Status</span><select className="form-control" value={project.status} disabled={pending[`project-${project.id}`]} onChange={(event) => setProjectStatus(project.id, event.target.value)}>{PROJECT_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-            {project.status === 'Completed' && project.client_id && <button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/projects/${project.id}/review-request`, token, { method: 'POST' }), (result) => result.email_sent ? 'Review request sent again.' : 'Error: Review email failed.')}>Resend review email</button>}
-            {project.client_id && !project.welcome_email_sent_at && <button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/clients/${project.client_id}/welcome-retry`, token, { method: 'POST' }), (result) => result.email_sent ? 'New login details emailed to client.' : 'Error: Login email failed.')}>Resend login details</button>}
+          <div className="admin-project__tools"><label className="form-field"><span>{t('Status')}</span><select className="form-control" value={project.status} disabled={pending[`project-${project.id}`]} onChange={(event) => setProjectStatus(project.id, event.target.value)}>{PROJECT_STATUSES.map((value) => <option key={value} value={value}>{t(value)}</option>)}</select></label>
+            {project.status === 'Completed' && project.client_id && <button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/projects/${project.id}/review-request`, token, { method: 'POST' }), (result) => result.email_sent ? 'Review request sent again.' : 'Error: Review email failed.')}>{t('Resend review email')}</button>}
+            {project.client_id && !project.welcome_email_sent_at && <button className="button button--outline button--small" type="button" disabled={pending[`project-${project.id}`]} onClick={() => act(`project-${project.id}`, () => apiRequest(`/api/clients/${project.client_id}/welcome-retry`, token, { method: 'POST' }), (result) => result.email_sent ? 'New login details emailed to client.' : 'Error: Login email failed.')}>{t('Resend login details')}</button>}
           </div>
-          <form className="admin-project__media-form" onSubmit={(event) => uploadImages(event, project.id)}><label className="form-field"><span>Add images (up to 20)</span><input className="form-control file-control" type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple /></label><button className="button button--outline" disabled={pending[`project-${project.id}`]}>Upload images</button></form>
-          <form className="admin-project__update-form" onSubmit={(event) => addUpdate(event, project.id)}><label className="form-field"><span>Add project text update</span><textarea className="form-control" value={updateValues[project.id] || ''} onChange={(event) => setUpdateValues((current) => ({ ...current, [project.id]: event.target.value }))} rows={3} required /></label><button className="button button--outline" disabled={pending[`project-${project.id}`]}>Add update</button></form>
-          {project.updates.length > 0 && <div className="admin-project__updates">{project.updates.map((update) => <p key={update.id}>{update.body}</p>)}</div>}
-          {messages[`project-${project.id}`] && <p className={`admin-project__feedback${messages[`project-${project.id}`].startsWith('Error:') ? ' is-error' : ''}`} role="status">{messages[`project-${project.id}`]}</p>}
-        </article>)}</div>
+          <form className="admin-project__media-form" onSubmit={(event) => uploadImages(event, project.id)}><label className="form-field"><span>{t('Add images (up to 20)')}</span><input className="form-control file-control" type="file" name="images" accept="image/jpeg,image/png,image/webp,image/gif" multiple /></label><button className="button button--outline" disabled={pending[`project-${project.id}`]}>{t('Upload images')}</button></form>
+          <form className="admin-project__update-form" onSubmit={(event) => addUpdate(event, project.id)}><label className="form-field"><span>{t('Add project text update')}</span><textarea className="form-control" value={updateValues[project.id] || ''} onChange={(event) => setUpdateValues((current) => ({ ...current, [project.id]: event.target.value }))} rows={3} required /></label><button className="button button--outline" disabled={pending[`project-${project.id}`]}>{t('Add update')}</button></form>
+          {project.updates.length > 0 && <div className="admin-project__updates">{project.updates.map((update) => <p key={update.id} dir="auto">{update.body}</p>)}</div>}
+          {messages[`project-${project.id}`] && <p className={`admin-project__feedback${messages[`project-${project.id}`].startsWith('Error:') ? ' is-error' : ''}`} role="status">{messageText(messages[`project-${project.id}`])}</p>}
+          </div>
+        </details>)}</div>
       </section>
 
-      <section className="admin-panel" aria-labelledby="portfolio-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> Selected work</p><h2 id="portfolio-title">Add portfolio work</h2></div></div><p>This creates a completed public gallery project without a linked client or review email.</p>
+      <section className="admin-panel" aria-labelledby="portfolio-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> {t('Selected work')}</p><h2 id="portfolio-title">{t('Add portfolio work')}</h2></div></div><p>{t('This creates a completed public gallery project without a linked client or review email.')}</p>
         <form className="admin-create-project" onSubmit={addPortfolio}><div className="admin-create-project__fields">
-          <label className="form-field"><span>Title</span><input className="form-control" value={portfolio.title} onChange={(event) => setPortfolio((current) => ({ ...current, title: event.target.value }))} required /></label>
-          <label className="form-field"><span>Description</span><input className="form-control" value={portfolio.description} onChange={(event) => setPortfolio((current) => ({ ...current, description: event.target.value }))} /></label>
-          <label className="form-field"><span>Image</span><input className="form-control file-control" type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" required /></label>
-          <button className="button button--dark" disabled={pending.portfolio}>Publish to Home</button>
-        </div>{messages.portfolio && <p className={`admin-project__feedback${messages.portfolio.startsWith('Error:') ? ' is-error' : ''}`} role="status">{messages.portfolio}</p>}</form>
+          <label className="form-field"><span>{t('Title')}</span><input className="form-control" value={portfolio.title} onChange={(event) => setPortfolio((current) => ({ ...current, title: event.target.value }))} required /></label>
+          <label className="form-field"><span>{t('Description')}</span><input className="form-control" value={portfolio.description} onChange={(event) => setPortfolio((current) => ({ ...current, description: event.target.value }))} /></label>
+          <label className="form-field"><span>{t('Image')}</span><input className="form-control file-control" type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" required /></label>
+          <button className="button button--dark" disabled={pending.portfolio}>{t('Publish to Home')}</button>
+        </div>{messages.portfolio && <p className={`admin-project__feedback${messages.portfolio.startsWith('Error:') ? ' is-error' : ''}`} role="status">{messageText(messages.portfolio)}</p>}</form>
       </section>
 
-      <section className="admin-panel" aria-labelledby="reviews-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> Client voices</p><h2 id="reviews-title">Public reviews</h2></div><span className="admin-count">{reviews.length} reviews</span></div>
-        {reviews.length === 0 && <p>No reviews yet.</p>}
-        <div className="admin-review-list">{reviews.map((review) => <article className="admin-review" key={review.id}><div><strong>{review.client_name}</strong> · {review.project_title || 'Previous project'} · {'★'.repeat(review.rating)}<p>{review.comment}</p></div><button className="button button--outline button--small" type="button" disabled={pending[`review-${review.id}`]} onClick={() => act(`review-${review.id}`, () => apiRequest(`/api/reviews/${review.id}`, token, { method: 'DELETE' }), 'Review deleted.')}>Delete review</button></article>)}</div>
+      <section className="admin-panel" aria-labelledby="reviews-title"><div className="admin-panel__heading"><div><p className="eyebrow"><span className="eyebrow__line" /> {t('Client voices')}</p><h2 id="reviews-title">{t('Public reviews')}</h2></div><span className="admin-count">{t('{count} reviews', { count: reviews.length })}</span></div>
+        {reviews.length === 0 && <p>{t('No reviews yet.')}</p>}
+        <div className="admin-review-list">{reviews.map((review) => <article className="admin-review" key={review.id}><div><strong dir="auto">{review.client_name}</strong> · <span dir="auto">{review.project_title || t('Previous project')}</span> · {'★'.repeat(review.rating)}<p dir="auto">{review.comment}</p></div><button className="button button--outline button--small" type="button" disabled={pending[`review-${review.id}`]} onClick={() => act(`review-${review.id}`, () => apiRequest(`/api/reviews/${review.id}`, token, { method: 'DELETE' }), 'Review deleted.')}>{t('Delete review')}</button></article>)}</div>
       </section>
     </div>}
   </div>;

@@ -22,7 +22,7 @@ export function registerWorkspaceRoutes(app, { upload, uploadsDir, authMiddlewar
   async function loadProjects(where = '1=1', params = []) {
     const [projects] = await pool.execute(
       `SELECT p.id, p.title, p.description, p.image_url, p.status, p.client_id, p.lead_id,
-              p.is_public, p.completed_at, p.review_requested_at, u.name AS client_name,
+              p.is_public, p.completed_at, p.review_requested_at, p.reviewed_at, u.name AS client_name,
               u.email AS client_email, u.welcome_email_sent_at
        FROM Projects p LEFT JOIN Users u ON u.id = p.client_id WHERE ${where} ORDER BY p.id DESC`, params,
     );
@@ -101,7 +101,7 @@ export function registerWorkspaceRoutes(app, { upload, uploadsDir, authMiddlewar
   app.get('/api/projects', async (_req, res, next) => {
     try {
       const projects = await loadProjects('p.is_public = TRUE');
-      return res.json(projects.map(({ client_id, lead_id, client_name, client_email, welcome_email_sent_at, updates, ...publicProject }) => publicProject));
+      return res.json(projects.map(({ client_id, lead_id, client_name, client_email, welcome_email_sent_at, reviewed_at, updates, ...publicProject }) => publicProject));
     } catch (error) { return next(error); }
   });
 
@@ -110,7 +110,14 @@ export function registerWorkspaceRoutes(app, { upload, uploadsDir, authMiddlewar
   });
 
   app.get('/api/client/projects', authMiddleware, requireClient, async (req, res, next) => {
-    try { return res.json(await loadProjects('p.client_id = ?', [req.user.id])); } catch (error) { return next(error); }
+    try {
+      const [projects, [reviews]] = await Promise.all([
+        loadProjects('p.client_id = ?', [req.user.id]),
+        pool.execute('SELECT project_id FROM Reviews WHERE client_id = ? AND project_id IS NOT NULL', [req.user.id]),
+      ]);
+      const reviewed = new Set(reviews.map((review) => String(review.project_id)));
+      return res.json(projects.map(({ reviewed_at, ...project }) => ({ ...project, has_review: Boolean(reviewed_at) || reviewed.has(String(project.id)) })));
+    } catch (error) { return next(error); }
   });
 
   app.post('/api/projects', authMiddleware, requireAdmin, upload.single('image'), async (req, res, next) => {
@@ -378,13 +385,24 @@ export function registerWorkspaceRoutes(app, { upload, uploadsDir, authMiddlewar
         typeof comment !== 'string' || !comment.trim() || comment.length > 2000) {
       return res.status(400).json({ error: 'Choose a completed project, rating 1–5, and comment up to 2000 characters.' });
     }
+    const connection = await pool.getConnection();
     try {
-      const [projects] = await pool.execute('SELECT id FROM Projects WHERE id = ? AND client_id = ? AND status = \'Completed\'', [project_id, req.user.id]);
-      if (!projects.length) return res.status(403).json({ error: 'This completed project is not linked to your account.' });
-      const [result] = await pool.execute('INSERT INTO Reviews (client_id, project_id, rating, comment) VALUES (?, ?, ?, ?)',
+      await connection.beginTransaction();
+      const [projects] = await connection.execute('SELECT id, reviewed_at FROM Projects WHERE id = ? AND client_id = ? AND status = \'Completed\' FOR UPDATE', [project_id, req.user.id]);
+      if (!projects.length) { await connection.rollback(); return res.status(403).json({ error: 'This completed project is not linked to your account.' }); }
+      if (projects[0].reviewed_at) { await connection.rollback(); return res.status(409).json({ error: 'A review has already been submitted for this project.' }); }
+      const [existing] = await connection.execute('SELECT id FROM Reviews WHERE project_id = ? LIMIT 1', [project_id]);
+      if (existing.length) { await connection.rollback(); return res.status(409).json({ error: 'A review has already been submitted for this project.' }); }
+      const [result] = await connection.execute('INSERT INTO Reviews (client_id, project_id, rating, comment) VALUES (?, ?, ?, ?)',
         [req.user.id, project_id, rating, comment.trim()]);
+      await connection.execute('UPDATE Projects SET reviewed_at = UTC_TIMESTAMP() WHERE id = ?', [project_id]);
+      await connection.commit();
       return res.status(201).json({ id: result.insertId });
-    } catch (error) { return next(error); }
+    } catch (error) {
+      await connection.rollback();
+      if (error.code === 'ER_DUP_ENTRY') return res.status(409).json({ error: 'A review has already been submitted for this project.' });
+      return next(error);
+    } finally { connection.release(); }
   });
 
   app.delete('/api/reviews/:id', authMiddleware, requireAdmin, async (req, res, next) => {

@@ -10,10 +10,12 @@ import Contact from './pages/Contact.jsx';
 import Admin from './pages/Admin.jsx';
 import Client from './pages/Client.jsx';
 import './index.css';
+import { LanguageProvider } from './i18n.jsx';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <Provider store={store}>
+      <LanguageProvider>
       <BrowserRouter>
         <Navbar />
         <main className="app-main">
@@ -27,6 +29,7 @@ createRoot(document.getElementById('root')).render(
           </Routes>
         </main>
       </BrowserRouter>
+      </LanguageProvider>
     </Provider>
   </React.StrictMode>,
 );

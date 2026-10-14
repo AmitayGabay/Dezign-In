@@ -41,6 +41,8 @@ When a client project changes to `Completed`, the client receives a styled revie
 
 For an existing MySQL volume, run `npm run migrate-reviews` and then `npm run migrate-workspace` from `server`. These scripts add the review and client workspace tables without deleting existing leads or projects. The workspace migration publishes legacy standalone projects so they remain visible on Home. Fresh volumes get the complete schema from `db/init.sql`.
 
+For an existing volume, also apply `db/migrations/20261014_one_review_per_project.sql` once before starting the updated API. Check its duplicate-review query first; if it returns rows, decide which existing review to retain before adding the index. The migration records which projects have already been reviewed, so deleting a public review does not reopen review submission. Fresh volumes already include these fields and the index in `db/init.sql`.
+
 To create the first admin account, set a temporary `ADMIN_PASSWORD` (at least 8 characters) in the shell environment, then run `npm run create-admin` from `server`. The script uses `ADMIN_EMAIL` as the login address and hashes the password in MySQL. Remove `ADMIN_PASSWORD` from the shell environment after the account is created. The command refuses to overwrite an existing account.
 
 ## Start the frontend
@@ -56,5 +58,17 @@ npm run dev
 Open the local URL printed by Vite (usually `http://localhost:5173`). The frontend has Home, About, Contact, Client area, and Admin pages. The Home gallery displays only projects explicitly marked for publication; an empty gallery means nothing has been published yet.
 
 The admin dashboard can delete leads, open multiple projects for one client, edit project descriptions, add text updates, upload multiple images, publish selected projects, change statuses, and delete reviews. A separate portfolio form creates a public project with an image, marks it Completed automatically, and sends no client email. Completed projects are styled differently in both dashboards and the public gallery. Private client images require the admin or linked client's JWT even when their image URL is known. Uploaded files are stored in `server/uploads`; back up this folder along with the database.
+
+## Languages
+
+The language menu in the header offers English, French, Hebrew, Russian, and Arabic. React's `LanguageProvider` in `client/src/i18n.jsx` stores the choice in `localStorage`, sets the document's `lang` and `dir`, and supplies translated interface text from `client/src/translations.js`. Hebrew and Arabic use right-to-left layout rules in `client/src/index.css`; the gallery controls also reverse their scroll direction. Dates and the ILS estimate use the browser's `Intl` locale formatting. Project statuses and service types keep their English API values while their labels are translated. Text entered by clients or admins, such as project descriptions and reviews, remains in the language in which it was written.
+
+## Postman API collection
+
+Import [`postman/DezignIn.postman_collection.json`](postman/DezignIn.postman_collection.json) into Postman. The collection covers every Express route, including uploaded files and the retired routes that return HTTP 410. It uses collection variables, so no separate environment import is needed.
+
+Set `baseUrl` if the API is not running at `http://localhost:3001`. Set `adminEmail` and `adminPassword` to the credentials created with `npm run create-admin`, then run **Login as admin**; its response automatically saves `adminToken`. For a full client workflow, set `clientEmail` to a mailbox you can access, run **Create lead**, then **Open client project from lead**. The welcome email contains the generated client password. Set `clientPassword` and run **Login as client** to save `clientToken`. Successful creation requests also save the IDs needed by later requests.
+
+Choose an image file in each multipart request after importing the collection. Supported formats are JPG, PNG, WebP, and GIF, up to 10 MB per file. To submit a review, first change the linked client project to `Completed`; that project accepts one review only. Run requests individually in the order you need: write requests can create or delete records and some send emails.
 
 To stop MySQL, run `docker compose down` from the repository root.

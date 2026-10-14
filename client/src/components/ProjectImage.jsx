@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '../i18n.jsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:3001';
 
 export default function ProjectImage({ url, token, alt, ...props }) {
+  const { t } = useI18n();
   const [objectUrl, setObjectUrl] = useState('');
 
   useEffect(() => {
@@ -22,5 +24,5 @@ export default function ProjectImage({ url, token, alt, ...props }) {
     return () => { active = false; if (localUrl) URL.revokeObjectURL(localUrl); };
   }, [url, token]);
 
-  return objectUrl ? <img src={objectUrl} alt={alt} {...props} /> : <div className="admin-project__placeholder" aria-label={alt}>Image</div>;
+  return objectUrl ? <img src={objectUrl} alt={alt} {...props} /> : <div className="admin-project__placeholder" aria-label={alt}>{t('Image')}</div>;
 }
